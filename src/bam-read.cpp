@@ -1,6 +1,7 @@
 #include "bam-read.h"
 
 #include <thread>
+#include <functional>
 
 
 
@@ -111,12 +112,11 @@ void BamRead::load_bam(std::string file, int n_threads) {
 
   load_bam_header();
 
-  vector<AlnQueue> queues;
+  vector<AlnQueue*> queues;
   vector<std::thread> threads;
   for (int i = 0; i < n_threads; ++i) {
-    AlnQueue queue(100000);
-    queues.emplace_back(queue);
-    threads.emplace_back( std::thread(process_queue, this, queue) );
+    queues.emplace_back(new AlnQueue(100000));
+    threads.emplace_back( process_queue, std::ref(*this), std::ref(*(queues.back())) );
   }
 
   // send alignments to parallel processing threads in batches
@@ -132,7 +132,7 @@ void BamRead::load_bam(std::string file, int n_threads) {
     }
 
     int queue_no = alignment.RefID % n_threads;
-    queues[queue_no].enqueue(alignment);
+    queues[queue_no] -> enqueue(alignment);
 
   }
 
@@ -144,7 +144,7 @@ void BamRead::load_bam(std::string file, int n_threads) {
 
   // process contigs
   for (int i = 0; i < n_threads; ++i) {
-    threads.emplace_back( std::thread(process_contigs, this, i) );
+    threads.emplace_back( process_contigs, std::ref(*this), i);
   }
   for (auto &thread : threads) {
     thread.join();

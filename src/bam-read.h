@@ -21,16 +21,6 @@ double nullprior = 0.7;
 class BamRead
 {
 public:
-  BamRead(void);
-  BamRead(const BamRead &in) {
-    bar = in.bar;
-    seq_count = in.seq_count;
-    nm_tag = in.nm_tag;
-    ldist = in.ldist;
-    realistic_distance = in.realistic_distance;
-    array = in.array;
-  }
-  ~BamRead(void);
   int estimate_fragment_size(std::string file);
   void load_bam(std::string, int n_threads);
   void load_bam_header();
@@ -41,7 +31,7 @@ public:
   int ldist;
   int realistic_distance;
   BamReader reader;
-  std::vector<TransratePileup> array;
+  vector<TransratePileup> array;
 };
 
 // function that each thread runs
@@ -59,7 +49,7 @@ void process_queue(BamRead &br, AlnQueue &queue) {
 // do final summary processing of each contig
 void process_contigs(BamRead &br, int thread_id) {
   for (int i = 0; i < br.seq_count; ++i) {
-    if (i % thread_id == 0) {
+    if ((i + 1) % (thread_id + 1) == 0) {
       br.array[i].calculateUncoveredBases();
       br.array[i].setPNotSegmented();
     }
