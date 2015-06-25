@@ -1,5 +1,5 @@
 set(BAMREAD_SRCS bam-read.cpp pileup.cpp segmenter.cpp)
-set(BAMREAD_HEADERS pileup.h segmenter.h)
+set(BAMREAD_HEADERS pileup.h segmenter.h readerwriterqueue.h atomicops.h)
 
 
 include_directories(${GAT_SOURCE_DIR}/bamtools/include)
