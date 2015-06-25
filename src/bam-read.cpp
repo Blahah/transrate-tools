@@ -111,16 +111,13 @@ void BamRead::load_bam(std::string file, int n_threads) {
 
   load_bam_header();
 
-  vector<BatchQueue> queues;
+  vector<AlnQueue> queues;
   vector<std::thread> threads;
   for (int i = 0; i < n_threads; ++i) {
-    BatchQueue queue;
+    AlnQueue queue(100000);
     queues.emplace_back(queue);
     threads.emplace_back( std::thread(process_queue, this, queue) );
   }
-
-
-  vector<Batch> batches(queues.size());
 
   // send alignments to parallel processing threads in batches
   while (true) {
@@ -135,33 +132,8 @@ void BamRead::load_bam(std::string file, int n_threads) {
     }
 
     int queue_no = alignment.RefID % n_threads;
-    Batch batch = batches[queue_no];
+    queues[queue_no].enqueue(alignment);
 
-    if (batch.size() == 1e5) {
-
-      // this batch is ready to be processed - add it to queue
-      queues[queue_no].enqueue(batch);
-
-      // start a fresh batch for this queue
-      Batch newbatch;
-      batches[queue_no] = newbatch;
-
-    } else {
-
-      // just keep populating the batch
-      batch.emplace_back(alignment);
-
-    }
-
-  }
-
-  // process any batches that didn't fill up completely
-  for (int i = 0; i < batches.size(); ++i) {
-    if (batches[i].size() > 0) {
-      queues[i].enqueue(batches[i]);
-    }
-    Batch batch;
-    queues[i].enqueue(batch);
   }
 
   // wait for threads to finish
@@ -181,7 +153,7 @@ void BamRead::load_bam(std::string file, int n_threads) {
 }
 
 void BamRead::process_alignment(BamAlignment alignment) {
-  refid = alignment.RefID;
+  int refid = alignment.RefID;
   ++array[refid].reads_mapped;
 
   array[refid].addAlignment(alignment);

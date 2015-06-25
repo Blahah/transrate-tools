@@ -14,14 +14,23 @@ using namespace std;
 
 using namespace moodycamel;
 
-typedef vector<BamAlignment> Batch;
-typedef BlockingReaderWriterQueue<Batch> BatchQueue;
+typedef ReaderWriterQueue<BamAlignment> AlnQueue;
 
 double nullprior = 0.7;
 
 class BamRead
 {
 public:
+  BamRead(void);
+  BamRead(const BamRead &in) {
+    bar = in.bar;
+    seq_count = in.seq_count;
+    nm_tag = in.nm_tag;
+    ldist = in.ldist;
+    realistic_distance = in.realistic_distance;
+    array = in.array;
+  }
+  ~BamRead(void);
   int estimate_fragment_size(std::string file);
   void load_bam(std::string, int n_threads);
   void load_bam_header();
@@ -31,7 +40,6 @@ public:
   uint32_t nm_tag;
   int ldist;
   int realistic_distance;
-  int refid;
   BamReader reader;
   std::vector<TransratePileup> array;
 };
@@ -39,17 +47,11 @@ public:
 // function that each thread runs
 // this function gets passed a queue and just processes it until
 // it gets an empty batch of alignments
-void process_queue(BamRead &br, BatchQueue &queue, bool done) {
+void process_queue(BamRead &br, AlnQueue &queue) {
 
-  Batch batch;
-  queue.wait_dequeue(batch);
-  while (batch.size() > 0) {
-    for (auto &alignment : batch) {
-      br.process_alignment(alignment);
-    }
-    // free up the memory for this batch
-    batch.clear();
-    queue.wait_dequeue(batch);
+  BamAlignment alignment;
+  while (queue.try_dequeue(alignment)) {
+    br.process_alignment(alignment);
   }
 
 }
