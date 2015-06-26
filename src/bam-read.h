@@ -50,9 +50,10 @@ void process_queue(BamRead &br, AlnQueue &queue) {
       br.process_alignment(alignment);
       ++processed;
     }
+    batch.clear();
+    batch.shrink_to_fit();
     queue.wait_dequeue(batch);
   }
-  cout << "handled " <<  processed << " alignments in this thread";
 
 }
 
