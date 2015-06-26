@@ -51,7 +51,7 @@ void process_queue(BamRead &br, AlnQueue &queue) {
       ++processed;
     }
     batch.clear();
-    batch.shrink_to_fit();
+    Batch().swap(batch);
     queue.wait_dequeue(batch);
   }
 

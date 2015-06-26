@@ -147,7 +147,7 @@ void BamRead::load_bam(string file, int n_threads) {
       queues[queue_no]->enqueue(*batches[queue_no]);
 
       // start a fresh batch for this queue
-      batches.at(queue_no) = new Batch(batch_size);
+      batches.at(queue_no) = new Batch();
       batches[queue_no]->reserve(batch_size);
 
     }
