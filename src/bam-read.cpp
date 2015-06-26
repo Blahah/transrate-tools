@@ -1,6 +1,5 @@
 #include "bam-read.h"
 
-#include <thread>
 #include <functional>
 
 
@@ -110,6 +109,7 @@ void BamRead::load_bam(std::string file, int n_threads) {
     exit(1);
   }
 
+  std::cout << "loading bam header" << std::endl;
   load_bam_header();
 
   vector<AlnQueue*> queues;
@@ -119,7 +119,11 @@ void BamRead::load_bam(std::string file, int n_threads) {
     threads.emplace_back( process_queue, std::ref(*this), std::ref(*(queues.back())) );
   }
 
+  vector<Batch> batches(n_threads);
+
   // send alignments to parallel processing threads in batches
+  std::cout << "processing alignments" << std::endl;
+  int processed = 0;
   while (true) {
 
     BamAlignment alignment;
@@ -131,10 +135,38 @@ void BamRead::load_bam(std::string file, int n_threads) {
       continue;
     }
 
-    int queue_no = alignment.RefID % n_threads;
-    queues[queue_no] -> enqueue(alignment);
+    int queue_no = (alignment.RefID + 1) % n_threads;
+    Batch batch = batches[queue_no];
+
+    if (batch.size() == 1e5) {
+
+      // this batch is ready to be processed - add it to queue
+      queues[queue_no]->enqueue(batch);
+
+      // start a fresh batch for this queue
+      Batch newbatch;
+      batches[queue_no] = newbatch;
+
+    } else {
+
+      // just keep populating the batch
+      batch.emplace_back(alignment);
+
+    }
+    ++processed;
 
   }
+
+  // process any batches that didn't fill up completely
+  for (int i = 0; i < batches.size(); ++i) {
+    if (batches[i].size() > 0) {
+      queues[i]->enqueue(batches[i]);
+    }
+    Batch batch;
+    queues[i]->enqueue(batch);
+  }
+
+  std::cout << "processed " << processed << " alignments" << std::endl;
 
   // wait for threads to finish
   for (auto &thread : threads) {
@@ -143,8 +175,9 @@ void BamRead::load_bam(std::string file, int n_threads) {
   threads.clear();
 
   // process contigs
+  std::cout << "analysing contigs" << std::endl;
   for (int i = 0; i < n_threads; ++i) {
-    threads.emplace_back( process_contigs, std::ref(*this), i);
+    threads.emplace_back( process_contigs, std::ref(*this), i + 1, n_threads);
   }
   for (auto &thread : threads) {
     thread.join();
@@ -228,14 +261,16 @@ void BamRead::process_alignment(BamAlignment alignment) {
 int main (int argc, char* argv[]) {
   BamRead bam;
 
-  if (argc >= 3) {
-    if (argc == 4) {
+  if (argc >= 4) {
+    if (argc == 5) {
       // user has supplied a segmentation null prior
-      nullprior = atof(argv[3]);
+      nullprior = atof(argv[4]);
     }
     string infile = argv[1];
+    std::cout << "estimating fragment size" << std::endl;
     bam.estimate_fragment_size(infile);
-    bam.load_bam(infile, 4);
+    int threads = atoi(argv[3]);
+    bam.load_bam(infile, threads);
 
     // open file for writing
     std::ofstream output;
@@ -269,9 +304,9 @@ int main (int argc, char* argv[]) {
 
     cout << "bam-read version 1.0.0\n"
          << "Usage:\n"
-         << "bam-read <bam_file> <output_csv> <nullprior (optional)>\n\n"
+         << "bam-read <bam_file> <output_csv> <threads> <nullprior (optional)>\n\n"
          << "example:\n"
-         << "bam-read in.bam out.csv 0.95"
+         << "bam-read in.bam out.csv 8 0.95"
          << endl;
 
     return 1;
