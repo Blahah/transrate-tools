@@ -16,8 +16,8 @@ using namespace std;
 
 using namespace moodycamel;
 
-typedef vector<BamAlignment> Batch;
-typedef BlockingReaderWriterQueue<Batch> AlnQueue;
+// typedef vector<BamAlignment> Batch;
+typedef BlockingReaderWriterQueue<BamAlignment> AlnQueue;
 
 double nullprior = 0.7;
 
@@ -42,17 +42,13 @@ public:
 // it gets an empty batch of alignments
 void process_queue(BamRead &br, AlnQueue &queue) {
 
-  Batch batch;
+  BamAlignment alignment;
   int processed = 0;
-  queue.wait_dequeue(batch);
-  while (batch.size() > 0) {
-    for (auto &alignment : batch) {
-      br.process_alignment(alignment);
-      ++processed;
-    }
-    batch.clear();
-    Batch().swap(batch);
-    queue.wait_dequeue(batch);
+  queue.wait_dequeue(alignment);
+  while (alignment.RefID != -1) {
+    br.process_alignment(alignment);
+    ++processed;
+    queue.wait_dequeue(alignment);
   }
 
 }

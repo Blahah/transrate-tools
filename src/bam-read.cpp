@@ -113,16 +113,10 @@ void BamRead::load_bam(string file, int n_threads) {
 
   vector<AlnQueue*> queues;
   vector<thread> threads;
-  vector<Batch*> batches;
   unsigned batch_size = 1e5;
   for (int i = 0; i < n_threads; ++i) {
-    queues.emplace_back(new AlnQueue(10));
+    queues.emplace_back(new AlnQueue(batch_size));
     threads.emplace_back( process_queue, ref(*this), ref(*(queues.back())) );
-    batches.emplace_back(new Batch);
-  }
-
-  for (auto &batch : batches) {
-    batch->reserve(batch_size);
   }
 
   // send alignments to parallel processing threads in batches
@@ -141,30 +135,16 @@ void BamRead::load_bam(string file, int n_threads) {
 
     int queue_no = ((alignment.RefID + 1) % n_threads);
 
-    if (batches[queue_no]->size() == batch_size) {
-
-      // this batch is ready to be processed - add it to queue
-      queues[queue_no]->enqueue(*batches[queue_no]);
-
-      // start a fresh batch for this queue
-      batches.at(queue_no) = new Batch();
-      batches[queue_no]->reserve(batch_size);
-
-    }
-
-    batches[queue_no]->push_back(alignment);
+    // this alignment is ready to be processed - add it to queue
+    queues[queue_no]->enqueue(alignment);
 
     ++processed;
 
   }
 
-  // process any batches that didn't fill up completely
-  for (unsigned i = 0; i < batches.size(); ++i) {
-    if (batches[i]->size() > 0) {
-      queues[i]->enqueue(*batches[i]);
-    }
-    Batch batch;
-    queues[i]->enqueue(batch);
+  for (auto &queue : queues) {
+    BamAlignment blank;
+    queue->enqueue(blank);
   }
 
   cout << "processed " << processed << " alignments" << endl;
