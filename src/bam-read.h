@@ -44,7 +44,6 @@ void process_queue(BamRead &br, AlnQueue &queue) {
 
   Batch batch;
   int processed = 0;
-  this_thread::sleep_for(chrono::seconds(2));
   queue.wait_dequeue(batch);
   while (batch.size() > 0) {
     for (auto &alignment : batch) {
@@ -53,13 +52,11 @@ void process_queue(BamRead &br, AlnQueue &queue) {
     }
     queue.wait_dequeue(batch);
   }
-  cout << "handled " <<  processed << " alignments in this thread";
 
 }
 
 // do final summary processing of each contig
 void process_contigs(BamRead &br, int thread_id, int n_threads) {
-  cout << thread_id << endl;
   for (int i = 0; i < br.seq_count; ++i) {
     if (i % n_threads == thread_id) {
       br.array[i].calculateUncoveredBases();

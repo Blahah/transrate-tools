@@ -2,16 +2,16 @@
 
 #include <functional>
 
+using namespace std;
 
-
-int BamRead::estimate_fragment_size(std::string file) {
+int BamRead::estimate_fragment_size(string file) {
   if (!reader.Open(file)) {
     cerr << "Could not open BAM file" << endl;
     return 1;
   }
   int count = 0;
-  std::string name = "";
-  std::string prev = "";
+  string name = "";
+  string prev = "";
   int pos1 = -1;
   int pos2 = -1;
   int len1 = -1;
@@ -84,7 +84,7 @@ void BamRead::load_bam_header() {
   array.resize(seq_count);
 
   // fill the hash map with initial values
-  std::vector<SamSequence>::iterator it = dictionary.Begin();
+  vector<SamSequence>::iterator it = dictionary.Begin();
   int len = 0;
 
   for (int i = 0; i < seq_count; i++) {
@@ -102,31 +102,31 @@ void BamRead::load_bam_header() {
 
 }
 
-void BamRead::load_bam(std::string file, int n_threads) {
+void BamRead::load_bam(string file, int n_threads) {
 
   if (!reader.Open(file)) {
     cerr << "Could not open BAM file" << endl;
     exit(1);
   }
 
-  std::cout << "loading bam header" << std::endl;
+  cout << "loading bam header" << endl;
   load_bam_header();
 
   vector<AlnQueue*> queues;
-  vector<std::thread> threads;
+  vector<thread> threads;
+  vector<Batch*> batches;
   for (int i = 0; i < n_threads; ++i) {
     queues.emplace_back(new AlnQueue(100000));
-    threads.emplace_back( process_queue, std::ref(*this), std::ref(*(queues.back())) );
+    threads.emplace_back( process_queue, ref(*this), ref(*(queues.back())) );
+    batches.emplace_back(new Batch);
   }
 
-  vector<Batch> batches(n_threads);
-
   // send alignments to parallel processing threads in batches
-  std::cout << "processing alignments" << std::endl;
+  cout << "processing alignments" << endl;
   int processed = 0;
+  BamAlignment alignment;
   while (true) {
 
-    BamAlignment alignment;
     if (!reader.GetNextAlignment(alignment)) {
       break;
     }
@@ -136,37 +136,36 @@ void BamRead::load_bam(std::string file, int n_threads) {
     }
 
     int queue_no = ((alignment.RefID + 1) % n_threads);
-    Batch batch = batches[queue_no];
 
-    if (batch.size() == 1e5) {
+    if (batches[queue_no]->size() == 1e5) {
 
+      cout << ":)" << endl;
       // this batch is ready to be processed - add it to queue
-      queues[queue_no]->enqueue(batch);
+      queues[queue_no]->enqueue(*batches[queue_no]);
 
       // start a fresh batch for this queue
-      Batch newbatch;
-      batches[queue_no] = newbatch;
-
-    } else {
-
-      // just keep populating the batch
-      batch.emplace_back(alignment);
+      batches[queue_no] = new Batch;
 
     }
+
+    batches[queue_no]->push_back(alignment);
+
     ++processed;
 
   }
 
   // process any batches that didn't fill up completely
-  for (int i = 0; i < batches.size(); ++i) {
-    if (batches[i].size() > 0) {
-      queues[i]->enqueue(batches[i]);
+  for (unsigned i = 0; i < batches.size(); ++i) {
+    cout << "batch" << i << " has size " << batches[i]->size() << endl;
+    if (batches[i]->size() > 0) {
+      cout << "enqueueing batch " << i << endl;
+      queues[i]->enqueue(*batches[i]);
     }
     Batch batch;
     queues[i]->enqueue(batch);
   }
 
-  std::cout << "processed " << processed << " alignments" << std::endl;
+  cout << "processed " << processed << " alignments" << endl;
 
   // wait for threads to finish
   for (auto &thread : threads) {
@@ -175,9 +174,9 @@ void BamRead::load_bam(std::string file, int n_threads) {
   threads.clear();
 
   // process contigs
-  std::cout << "analysing contigs" << std::endl;
+  cout << "analysing contigs" << endl;
   for (int i = 0; i < n_threads; ++i) {
-    threads.emplace_back( process_contigs, std::ref(*this), i, n_threads);
+    threads.emplace_back( process_contigs, ref(*this), i, n_threads);
   }
   for (auto &thread : threads) {
     thread.join();
@@ -267,13 +266,13 @@ int main (int argc, char* argv[]) {
       nullprior = atof(argv[4]);
     }
     string infile = argv[1];
-    std::cout << "estimating fragment size" << std::endl;
+    cout << "estimating fragment size" << endl;
     bam.estimate_fragment_size(infile);
     int threads = atoi(argv[3]);
     bam.load_bam(infile, threads);
 
     // open file for writing
-    std::ofstream output;
+    ofstream output;
     output.open (argv[2]);
     output << "name,p_seq_true,bridges,length,fragments_mapped,"
               "both_mapped,properpair,good,bases_uncovered,"
