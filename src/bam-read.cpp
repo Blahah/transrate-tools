@@ -109,7 +109,6 @@ void BamRead::load_bam(string file, int n_threads) {
     exit(1);
   }
 
-  cout << "loading bam header" << endl;
   load_bam_header();
 
   vector<AlnQueue*> queues;
@@ -120,6 +119,8 @@ void BamRead::load_bam(string file, int n_threads) {
     threads.emplace_back( process_queue, ref(*this), ref(*(queues.back())) );
     batches.emplace_back(new Batch);
   }
+
+  vector<Batch> batches(n_threads);
 
   // send alignments to parallel processing threads in batches
   cout << "processing alignments" << endl;
@@ -266,7 +267,6 @@ int main (int argc, char* argv[]) {
       nullprior = atof(argv[4]);
     }
     string infile = argv[1];
-    cout << "estimating fragment size" << endl;
     bam.estimate_fragment_size(infile);
     int threads = atoi(argv[3]);
     bam.load_bam(infile, threads);
