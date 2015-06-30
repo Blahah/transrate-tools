@@ -1,3 +1,6 @@
 [submodule "bamtools"]
 	path = bamtools
 	url = https://github.com/pezmaster31/bamtools.git
+[submodule "salmon"]
+	path = salmon
+	url = git@github.com:COMBINE-lab/salmon.git

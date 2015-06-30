@@ -199,13 +199,13 @@ void BamRead::process_alignment(BamAlignment alignment) {
 
   ++array[refid].both_mapped;
 
-  // // count proper pairs, although we have our own definition because
-  // // not all aligners use the same definition
+  // count proper pairs, although we have our own definition because
+  // not all aligners use the same definition
   if (alignment.IsProperPair()) {
     ++array[refid].properpair;
   }
 
-  // // mates must align to same contig, otherwise we record a bridge
+  // mates must align to same contig, otherwise we record a bridge
   if (refid != alignment.MateRefID) {
     ++array[refid].bridges;
     return;
@@ -228,13 +228,13 @@ void BamRead::process_alignment(BamAlignment alignment) {
     // in FR orientation, first read must start
     // before second read
     if (alignment.Position < alignment.MatePosition) {
-      array[refid].good++;
+      ++array[refid].good;
     }
   } else if (is_reversed && !is_mate_reversed) {
     // in RF orientation, second read must start
     // before first read
     if (alignment.MatePosition < alignment.Position) {
-      array[refid].good++;
+      ++array[refid].good;
     }
   }
 }
